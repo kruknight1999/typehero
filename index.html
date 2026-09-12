@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TYPE HERO – Extended & Random Monsters Edition</title>
+    <!-- Config ปิด Warning Tailwind CDN -->
+    <script>
+        window.tailwind = { config: { suppressDeprecationWarnings: true } };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;600;800&family=Fredoka:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Anuphan', 'Fredoka', sans-serif; user-select: none; }
+        .glow-key { box-shadow: 0 0 15px #facc15, inset 0 0 10px #facc15; border-color: #facc15 !important; }
+        .glow-key-correct { box-shadow: 0 0 15px #4ade80, inset 0 0 10px #4ade80; transform: translateY(2px); }
+        .glow-key-wrong { box-shadow: 0 0 15px #f87171, inset 0 0 10px #f87171; animation: shake 0.2s ease-in-out; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+        .combining-char { margin-left: -0.25em; }
+
+        /* REALISTIC KEYBOARD FLEX RATIOS */
+        .key-base { height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border-radius: 6px; user-select: none; transition: all 0.08s ease; }
+        .key-u1   { flex: 1; }
+        .key-u1-25 { flex: 1.25; }
+        .key-u1-5  { flex: 1.5; }
+        .key-u1-75 { flex: 1.75; }
+        .key-u2   { flex: 2; }
+        .key-u2-25 { flex: 2.25; }
+        .key-u2-75 { flex: 2.75; }
+        .key-space { flex: 6.25; }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between overflow-hidden">
+
+    <!-- TOP HUD HEADER -->
+    <header class="bg-slate-800/90 border-b border-slate-700 px-6 py-2.5 flex justify-between items-center z-10">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 font-extrabold text-lg px-3.5 py-1 rounded-xl shadow-lg flex items-center gap-2">
+                <span>⚔️</span> TYPE HERO
+            </div>
+            <!-- MODE SELECTOR -->
+            <select id="mode-select" onchange="changeGameMode(this.value)" class="bg-slate-700 text-amber-300 font-bold text-xs px-3 py-1.5 rounded-lg border border-slate-600 cursor-pointer focus:outline-none">
+                <option value="NORMAL">🎮 Normal Mode (สลับมอนสเตอร์สุ่ม)</option>
+                <option value="MIXED">🌀 Mixed Battle (สลับ TH ↔ EN)</option>
+                <option value="BOSS">🐲 Boss Battle (ศึกบอสมังกรไฟยักษ์)</option>
+            </select>
+            <div id="lang-indicator" class="bg-amber-500 text-slate-950 font-bold px-2.5 py-1 rounded-lg text-xs flex items-center gap-1 shadow">
+                <span>🇹🇭</span> THAI (Kedmanee)
+            </div>
+        </div>
+
+        <!-- STATS HUD -->
+        <div class="flex items-center space-x-4 text-xs font-semibold">
+            <div class="bg-slate-700/60 px-3 py-1 rounded-lg border border-slate-600">
+                <span class="text-slate-400">SCORE:</span> <span id="hud-score" class="text-yellow-400 font-bold text-sm">0</span>
+            </div>
+            <div class="bg-slate-700/60 px-3 py-1 rounded-lg border border-slate-600">
+                <span class="text-slate-400">WPM:</span> <span id="hud-wpm" class="text-cyan-400 font-bold text-sm">0</span>
+            </div>
+            <div class="bg-slate-700/60 px-3 py-1 rounded-lg border border-slate-600">
+                <span class="text-slate-400">ACCURACY:</span> <span id="hud-acc" class="text-emerald-400 font-bold text-sm">100%</span>
+            </div>
+            <div class="bg-slate-700/60 px-3 py-1 rounded-lg border border-slate-600">
+                <span class="text-slate-400">COMBO:</span> <span id="hud-combo" class="text-orange-400 font-extrabold text-base">x0</span>
+            </div>
+        </div>
+
+        <!-- CONTROLS -->
+        <div class="flex items-center space-x-2">
+            <button id="btn-toggle-sound" onclick="toggleSound()" class="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm">🔊</button>
+            <button id="btn-toggle-guide" onclick="toggleGuide()" class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-bold">Finger Guide: ON</button>
+        </div>
+    </header>
+
+    <!-- BATTLE CANVAS AREA -->
+    <main class="relative flex-1 flex flex-col items-center justify-center p-3">
+        <!-- BATTLE SCREEN -->
+        <div class="relative w-full max-w-5xl h-52 bg-gradient-to-b from-slate-900 via-sky-950 to-indigo-950 rounded-2xl border-4 border-slate-700 shadow-2xl overflow-hidden flex flex-col justify-between p-3">
+            <div class="flex justify-between items-center w-full px-2 z-10">
+                <!-- HERO HP -->
+                <div class="w-2/5">
+                    <div class="flex justify-between text-xs font-bold mb-1">
+                        <span id="hero-name" class="text-indigo-300">KNIGHT HERO (Lv.1)</span>
+                        <span id="hero-hp-text" class="text-emerald-400">100 / 100</span>
+                    </div>
+                    <div class="w-full bg-slate-900/80 h-3.5 rounded-full p-0.5 border border-slate-600">
+                        <div id="hero-hp-bar" class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- VS BADGE -->
+                <div id="vs-badge" class="bg-rose-600 text-white font-extrabold px-3 py-0.5 rounded-full text-xs shadow-lg animate-pulse">
+                    VS
+                </div>
+
+                <!-- MONSTER HP -->
+                <div class="w-2/5">
+                    <div class="flex justify-between text-xs font-bold mb-1">
+                        <span id="monster-hp-text" class="text-rose-400">300 / 300</span>
+                        <span id="monster-name" class="text-rose-300">SLIME</span>
+                    </div>
+                    <div class="w-full bg-slate-900/80 h-3.5 rounded-full p-0.5 border border-slate-600">
+                        <div id="monster-hp-bar" class="bg-rose-500 h-full rounded-full transition-all duration-300 float-right" style="width: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CHARACTERS STAGE -->
+            <div class="relative flex-1 flex justify-between items-end px-10 pb-1">
+                <div id="hero-sprite" class="relative text-6xl transition-transform duration-100 transform translate-x-0">🤺</div>
+                <div id="effect-layer" class="absolute inset-0 pointer-events-none flex items-center justify-center"></div>
+                <div id="monster-sprite" class="relative text-6xl transition-all duration-200 transform translate-x-0">🟢</div>
+            </div>
+        </div>
+
+        <!-- TARGET WORD DISPLAY PANEL -->
+        <div id="target-card" class="mt-3 bg-slate-800/90 border-2 border-amber-400/60 rounded-2xl px-8 py-2.5 shadow-xl flex flex-col items-center justify-center min-w-[420px] transition-all">
+            <div id="target-mode-label" class="text-[11px] text-amber-300 font-bold mb-0.5 uppercase tracking-wider">TYPE THIS WORD / พิมพ์คำนี้</div>
+            <div id="word-target-container" class="text-3xl font-extrabold tracking-wide flex items-center justify-center h-10"></div>
+            <div id="finger-hint-text" class="mt-1 text-xs text-indigo-300 font-semibold bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/50">
+                💡 นิ้วแนะนำ: <span id="finger-name" class="text-yellow-300 font-bold">-</span> (กดปุ่ม <span id="key-name" class="text-yellow-300 font-bold">-</span>)
+            </div>
+        </div>
+    </main>
+
+    <!-- REALISTIC VIRTUAL KEYBOARD -->
+    <footer class="bg-slate-950 border-t-2 border-slate-800 p-3 flex flex-col items-center justify-center">
+        <!-- LANG BAR -->
+        <div class="w-full max-w-4xl flex justify-between items-center mb-2 px-1 text-xs">
+            <div class="flex gap-2">
+                <button id="btn-lang-th" onclick="setLanguage('TH')" class="px-3 py-1 rounded-lg bg-amber-500 text-slate-900 font-bold shadow">🇹🇭 THAI</button>
+                <button id="btn-lang-en" onclick="setLanguage('EN')" class="px-3 py-1 rounded-lg bg-slate-700 text-slate-300 font-bold hover:bg-slate-600 transition">🇬🇧 ENGLISH</button>
+            </div>
+            <div id="lang-switch-tip" class="text-slate-400 text-xs italic">กดปุ่ม <span class="text-amber-400 font-bold">` (Grave Accent)</span> เพื่อสลับภาษา</div>
+        </div>
+
+        <!-- KEYBOARD CONTAINER WITH STANDARD RATIO -->
+        <div id="virtual-keyboard" class="bg-slate-900/90 p-3 rounded-2xl border border-slate-800 shadow-2xl w-full max-w-4xl flex flex-col gap-1.5">
+            <div id="kb-row-1" class="flex gap-1.5 w-full"></div>
+            <div id="kb-row-2" class="flex gap-1.5 w-full"></div>
+            <div id="kb-row-3" class="flex gap-1.5 w-full"></div>
+            <div id="kb-row-4" class="flex gap-1.5 w-full"></div>
+            <div id="kb-row-5" class="flex gap-1.5 w-full"></div>
+        </div>
+    </footer>
+
+    <!-- RESULT MODAL -->
+    <div id="result-modal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border-4 border-amber-400 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl">
+            <div id="res-icon" class="text-6xl mb-2">🏆</div>
+            <h2 id="res-title" class="text-3xl font-extrabold text-amber-400 mb-1">VICTORY! ชนะแล้ว!</h2>
+            <p id="res-desc" class="text-slate-300 text-sm mb-5">อัศวินของคุณพิชิตเหล่ามอนสเตอร์สำเร็จ!</p>
+
+            <div class="bg-slate-900 rounded-2xl p-4 mb-5 flex flex-col gap-2.5 text-left border border-slate-700 text-sm">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                    <span class="text-slate-400">ความแม่นยำ (Accuracy):</span>
+                    <span id="res-acc" class="text-emerald-400 font-bold text-base">100%</span>
+                </div>
+                <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                    <span class="text-slate-400">ความเร็วการพิมพ์ (WPM):</span>
+                    <span id="res-wpm" class="text-cyan-400 font-bold text-base">0 WPM</span>
+                </div>
+                <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                    <span class="text-slate-400">Combo สูงสุด:</span>
+                    <span id="res-combo" class="text-orange-400 font-bold text-base">x0</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">คะแนนรวมทั้งหมด:</span>
+                    <span id="res-score" class="text-yellow-400 font-bold text-lg">0</span>
+                </div>
+            </div>
+
+            <button onclick="restartGame()" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold py-3 rounded-xl shadow-lg transform active:scale-95 transition-all text-base">
+                🔄 เล่นอีกครั้ง / NEXT STAGE
+            </button>
+        </div>
+    </div>
+
+    <!-- ENGINE SCRIPT -->
+    <script>
+        // RANDOM MONSTER LIST
+        const MONSTER_ROSTER = [
+            { name: "GREEN SLIME", sprite: "🟢", hp: 300, scale: "" },
+            { name: "WILD WOLF", sprite: "🐺", hp: 350, scale: "" },
+            { name: "FOREST BEAR", sprite: "🐻", hp: 400, scale: "" },
+            { name: "STONE GOLEM", sprite: "🗿", hp: 450, scale: "" },
+            { name: "EVIL WIZARD", sprite: "🧙‍♂️", hp: 380, scale: "" },
+            { name: "GHOST", sprite: "👻", hp: 320, scale: "" },
+            { name: "GREEN DRAGON", sprite: "🐲", hp: 500, scale: "scale-110" },
+            { name: "RED DRAGON", sprite: "🐉", hp: 550, scale: "scale-110" },
+            { name: "UNICORN", sprite: "🦄", hp: 360, scale: "" },
+            { name: "ROBOT", sprite: "🤖", hp: 420, scale: "" }
+        ];
+
+        // STAGGERED REALISTIC KEYBOARD LAYOUTS
+        const KEYBOARD_LAYOUTS = {
+            EN: [
+                [
+                    { code: 'Backquote', key: '`', shiftKey: '~', uClass: 'key-u1' },
+                    { code: 'Digit1', key: '1', shiftKey: '!', uClass: 'key-u1' },
+                    { code: 'Digit2', key: '2', shiftKey: '@', uClass: 'key-u1' },
+                    { code: 'Digit3', key: '3', shiftKey: '#', uClass: 'key-u1' },
+                    { code: 'Digit4', key: '4', shiftKey: '$', uClass: 'key-u1' },
+                    { code: 'Digit5', key: '5', shiftKey: '%', uClass: 'key-u1' },
+                    { code: 'Digit6', key: '6', shiftKey: '^', uClass: 'key-u1' },
+                    { code: 'Digit7', key: '7', shiftKey: '&', uClass: 'key-u1' },
+                    { code: 'Digit8', key: '8', shiftKey: '*', uClass: 'key-u1' },
+                    { code: 'Digit9', key: '9', shiftKey: '(', uClass: 'key-u1' },
+                    { code: 'Digit0', key: '0', shiftKey: ')', uClass: 'key-u1' },
+                    { code: 'Minus', key: '-', shiftKey: '_', uClass: 'key-u1' },
+                    { code: 'Equal', key: '=', shiftKey: '+', uClass: 'key-u1' },
+                    { code: 'Backspace', key: 'Backspace', isSpecial: true, uClass: 'key-u2' }
+                ],
+                [
+                    { code: 'Tab', key: 'Tab', isSpecial: true, uClass: 'key-u1-5' },
+                    { code: 'KeyQ', key: 'q', shiftKey: 'Q', uClass: 'key-u1' },
+                    { code: 'KeyW', key: 'w', shiftKey: 'W', uClass: 'key-u1' },
+                    { code: 'KeyE', key: 'e', shiftKey: 'E', uClass: 'key-u1' },
+                    { code: 'KeyR', key: 'r', shiftKey: 'R', uClass: 'key-u1' },
+                    { code: 'KeyT', key: 't', shiftKey: 'T', uClass: 'key-u1' },
+                    { code: 'KeyY', key: 'y', shiftKey: 'Y', uClass: 'key-u1' },
+                    { code: 'KeyU', key: 'u', shiftKey: 'U', uClass: 'key-u1' },
+                    { code: 'KeyI', key: 'i', shiftKey: 'I', uClass: 'key-u1' },
+                    { code: 'KeyO', key: 'o', shiftKey: 'O', uClass: 'key-u1' },
+                    { code: 'KeyP', key: 'p', shiftKey: 'P', uClass: 'key-u1' },
+                    { code: 'BracketLeft', key: '[', shiftKey: '{', uClass: 'key-u1' },
+                    { code: 'BracketRight', key: ']', shiftKey: '}', uClass: 'key-u1' },
+                    { code: 'Backslash', key: '\\', shiftKey: '|', uClass: 'key-u1-5' }
+                ],
+                [
+                    { code: 'CapsLock', key: 'Caps', isSpecial: true, uClass: 'key-u1-75' },
+                    { code: 'KeyA', key: 'a', shiftKey: 'A', finger: 'นิ้วก้อยซ้าย', color: 'bg-rose-900/40', uClass: 'key-u1' },
+                    { code: 'KeyS', key: 's', shiftKey: 'S', finger: 'นิ้วนางซ้าย', color: 'bg-orange-900/40', uClass: 'key-u1' },
+                    { code: 'KeyD', key: 'd', shiftKey: 'D', finger: 'นิ้วกลางซ้าย', color: 'bg-amber-900/40', uClass: 'key-u1' },
+                    { code: 'KeyF', key: 'f', shiftKey: 'F', finger: 'นิ้วชี้ซ้าย', color: 'bg-emerald-900/40', uClass: 'key-u1' },
+                    { code: 'KeyG', key: 'g', shiftKey: 'G', finger: 'นิ้วชี้ซ้าย', color: 'bg-emerald-900/40', uClass: 'key-u1' },
+                    { code: 'KeyH', key: 'h', shiftKey: 'H', finger: 'นิ้วชี้ขวา', color: 'bg-teal-900/40', uClass: 'key-u1' },
+                    { code: 'KeyJ', key: 'j', shiftKey: 'J', finger: 'นิ้วชี้ขวา', color: 'bg-teal-900/40', uClass: 'key-u1' },
+                    { code: 'KeyK', key: 'k', shiftKey: 'K', finger: 'นิ้วกลางขวา', color: 'bg-cyan-900/40', uClass: 'key-u1' },
+                    { code: 'KeyL', key: 'l', shiftKey: 'L', finger: 'นิ้วนางขวา', color: 'bg-blue-900/40', uClass: 'key-u1' },
+                    { code: 'Semicolon', key: ';', shiftKey: ':', finger: 'นิ้วก้อยขวา', color: 'bg-indigo-900/40', uClass: 'key-u1' },
+                    { code: 'Quote', key: "'", shiftKey: '"', uClass: 'key-u1' },
+                    { code: 'Enter', key: 'Enter', isSpecial: true, uClass: 'key-u2-25' }
+                ],
+                [
+                    { code: 'ShiftLeft', key: 'Shift', isSpecial: true, uClass: 'key-u2-25' },
+                    { code: 'KeyZ', key: 'z', shiftKey: 'Z', uClass: 'key-u1' },
+                    { code: 'KeyX', key: 'x', shiftKey: 'X', uClass: 'key-u1' },
+                    { code: 'KeyC', key: 'c', shiftKey: 'C', uClass: 'key-u1' },
+                    { code: 'KeyV', key: 'v', shiftKey: 'V', uClass: 'key-u1' },
+                    { code: 'KeyB', key: 'b', shiftKey: 'B', uClass: 'key-u1' },
+                    { code: 'KeyN', key: 'n', shiftKey: 'N', uClass: 'key-u1' },
+                    { code: 'KeyM', key: 'm', shiftKey: 'M', uClass: 'key-u1' },
+                    { code: 'Comma', key: ',', shiftKey: '<', uClass: 'key-u1' },
+                    { code: 'Period', key: '.', shiftKey: '>', uClass: 'key-u1' },
+                    { code: 'Slash', key: '/', shiftKey: '?', uClass: 'key-u1' },
+                    { code: 'ShiftRight', key: 'Shift', isSpecial: true, uClass: 'key-u2-75' }
+                ],
+                [
+                    { code: 'ControlLeft', key: 'Ctrl', isSpecial: true, uClass: 'key-u1-25' },
+                    { code: 'MetaLeft', key: 'Win', isSpecial: true, uClass: 'key-u1-25' },
+                    { code: 'AltLeft', key: 'Alt', isSpecial: true, uClass: 'key-u1-25' },
+                    { code: 'Space', key: ' ', shiftKey: ' ', finger: 'นิ้วโป้ง', isSpecial: true, uClass: 'key-space' },
+                    { code: 'AltRight', key: 'Alt', isSpecial: true, uClass: 'key-u1-25' },
+                    { code: 'ControlRight', key: 'Ctrl', isSpecial: true, uClass: 'key-u1-25' }
+                ]
+            ],
+            TH: [
+                [
+                    { code: 'Backquote', key: '_', shiftKey: '%', uClass: 'key-u1' },
+                    { code: 'Digit1', key: 'ๅ', shiftKey: '+', uClass: 'key-u1' },
+                    { code: 'Digit2', key: '/', shiftKey: '๑', uClass: 'key-u1' },
+                    { code: 'Digit3', key: '-', shiftKey: '๒', uClass: 'key-u1' },
+                    { code: 'Digit4', key: 'ภ', shiftKey: '๓', uClass: 'key-u1' },
+                    { code: 'Digit5', key: 'ถ', shiftKey: '๔', uClass: 'key-u1' },
+                    { code: 'Digit6', key: 'ุ', shiftKey: 'ู', uClass: 'key-u1' },
+                    { code: 'Digit7', key: 'ึ', shiftKey: '฿', uClass: 'key-u1' },
+                    { code: 'Digit8', key: 'ค', shiftKey: '๕', uClass: 'key-u1' },
+                    { code: 'Digit9', key: 'ต', shiftKey: '๖', uClass: 'key-u1' },
+                    { code: 'Digit0', key: 'จ', shiftKey: '๗', uClass: 'key-u1' },
+                    { code: 'Minus', key: 'ข', shiftKey: '๘', uClass: 'key-u1' },
+                    { code: 'Equal', key: 'ช', shiftKey: '๙', uClass: 'key-u1' },
+                    { code: 'Backspace', key: 'Backspace', isSpecial: true, uClass: 'key-u2' }
+                ],
+                [
+                    { code: 'Tab', key: 'Tab', isSpecial: true, uClass: 'key-u1-5' },
+                    { code: 'KeyQ', key: 'ๆ', shiftKey: '0', uClass: 'key-u1' },
+                    { code: 'KeyW', key: 'ไ', shiftKey: '"', uClass: 'key-u1' },
+                    { code: 'KeyE', key: 'ำ', shiftKey: 'ฎ', uClass: 'key-u1' },
+                    { code: 'KeyR', key: 'พ', shiftKey: 'ฑ', uClass: 'key-u1' },
+                    { code: 'KeyT', key: 'ะ', shiftKey: 'ธ', uClass: 'key-u1' },
+                    { code: 'KeyY', key: 'ั', shiftKey: 'ํ', uClass: 'key-u1' },
+                    { code: 'KeyU', key: 'ี', shiftKey: '๊', uClass: 'key-u1' },
+                    { code: 'KeyI', key: 'ร', shiftKey: 'ณ', uClass: 'key-u1' },
+                    { code: 'KeyO', key: 'น', shiftKey: 'ฯ', uClass: 'key-u1' },
+                    { code: 'KeyP', key: 'ย', shiftKey: 'ญ', uClass: 'key-u1' },
+                    { code: 'BracketLeft', key: 'บ', shiftKey: 'ฐ', uClass: 'key-u1' },
+                    { code: 'BracketRight', key: 'ล', shiftKey: ',', uClass: 'key-u1' },
+                    { code: 'Backslash', key: 'ฃ', shiftKey: 'ฅ', uClass: 'key-u1-5' }
+                ],
+                [
+                    { code: 'CapsLock', key: 'Caps', isSpecial: true, uClass: 'key-u1-75' },
+                    { code: 'KeyA', key: 'ฟ', shiftKey: 'ฤ', finger: 'นิ้วก้อยซ้าย', color: 'bg-rose-900/40', uClass: 'key-u1' },
+                    { code: 'KeyS', key: 'ห', shiftKey: 'ฆ', finger: 'นิ้วนางซ้าย', color: 'bg-orange-900/40', uClass: 'key-u1' },
+                    { code: 'KeyD', key: 'ก', shiftKey: 'ฏ', finger: 'นิ้วกลางซ้าย', color: 'bg-amber-900/40', uClass: 'key-u1' },
+                    { code: 'KeyF', key: 'ด', shiftKey: 'โ', finger: 'นิ้วชี้ซ้าย', color: 'bg-emerald-900/40', uClass: 'key-u1' },
+                    { code: 'KeyG', key: 'เ', shiftKey: 'ฌ', finger: 'นิ้วชี้ซ้าย', color: 'bg-emerald-900/40', uClass: 'key-u1' },
+                    { code: 'KeyH', key: '้', shiftKey: '็', finger: 'นิ้วชี้ขวา', color: 'bg-teal-900/40', uClass: 'key-u1' },
+                    { code: 'KeyJ', key: '่', shiftKey: '๋', finger: 'นิ้วชี้ขวา', color: 'bg-teal-900/40', uClass: 'key-u1' },
+                    { code: 'KeyK', key: 'า', shiftKey: 'ษ', finger: 'นิ้วกลางขวา', color: 'bg-cyan-900/40', uClass: 'key-u1' },
+                    { code: 'KeyL', key: 'ส', shiftKey: 'ศ', finger: 'นิ้วนางขวา', color: 'bg-blue-900/40', uClass: 'key-u1' },
+                    { code: 'Semicolon', key: 'ว', shiftKey: 'ซ', finger: 'นิ้วก้อยขวา', color: 'bg-indigo-900/40', uClass: 'key-u1' },
+                    { code: 'Quote', key: 'ง', shiftKey: '.', uClass: 'key-u1' },
+                    { code: 'Enter', key: 'Enter', isSpecial: true, uClass: 'key-u2-25' }
+                ],
+                [
+                    { code: 'ShiftLeft', key: 'Shift', isSpecial: true, uClass: 'key-u2-25' },
+                    { code: 'KeyZ', key: 'ผ', shiftKey: '(', uClass: 'key-u1' },
+                    { code: 'KeyX', key: 'ป', shiftKey: ')', uClass: 'key-u1' },
+                    { code: 'KeyC', key: 'แ', shiftKey: 'ฉ', uClass: 'key-u1' },
+                    { code: 'KeyV', key: 'อ', shiftKey: 'ฮ', uClass: 'key-u1' },
+                    { code: 'KeyB', key: 'ิ', shiftKey: 'ฺ', uClass: 'key-u1' },
+                    { code: 'KeyN', key: 'ท', shiftKey: '์', uClass: 'key-u1' },
+                    { code: 'KeyM', key: 'ม', shiftKey: '?', uClass: 'key-u1' },
+                    { code: 'Comma', key: 'ใ', shiftKey: 'ฒ', uClass: 'key-u1' },
+                    { code: 'Period', key: 'ฝ', shiftKey: 'ฬ', uClass: 'key-u1' },
+                    { code: 'Slash', key: 'ฃ', shiftKey: '฾', uClass: 'key-u1' },
+                    { code: 'ShiftRight', key: 'Shift', isSpecial: true, uClass: 'key-u2-75' }
+                ],
+                [
+                    { code: 'ControlLeft', key: 'Ctrl', isSpecial: true, uClass: 'key-u1-25' },
+                    { code: 'MetaLeft', key: 'Win', isSpecial: true, uClass: 'key-u1-25' },
+                    { code: 'AltLeft', key: 'Alt', isSpecial: true, uClass: 'key-u1-25' },
+                    { code: 'Space', key: ' ', shiftKey: ' ', finger: 'นิ้วโป้ง', isSpecial: true, uClass: 'key-space' },
+                    { code: 'AltRight', key: 'Alt', isSpecial: true, uClass: 'key-u1-25' },
+                    { code: 'ControlRight', key: 'Ctrl', isSpecial: true, uClass: 'key-u1-25' }
+                ]
+            ]
+        };
+
+        // CHILD-FRIENDLY & EXTENDED WORD DATABASE
+        const WORD_DATABASE = {
+            TH: [
+                "แมว", "สุนัข", "กระต่าย", "นกนก", "ช้างน้อย", "ม้าลาย", "ลิงจ๋อ", "ปลาทอง", "เต่าต้วมเตี้ยม", "ผีเสื้อ",
+                "เป็ดน้อย", "ไก่แจ้", "กบอบอบ", "หมีพูห์", "โลมา", "วาฬยักษ์", "กวางป่า", "นกเพนกวิน", "จิงโจ้", "กระรอก",
+                "ดวงอาทิตย์", "ก้อนเมฆ", "สายรุ้ง", "ดอกไม้", "ต้นไม้", "ภูเขา", "แม่น้ำ", "ท้องฟ้า", "ดวงดาว", "ฝนตก",
+                "ดินสอ", "ยางลบ", "สมุดภาพ", "กระเป๋า", "จักรยาน", "ลูกบอล", "ของเล่น", "ไอศกรีม", "ขนมปัง", "ผลไม้",
+                "ยิ้มสยาม", "มีความสุข", "เด็กดี", "ขยันเรียน", "สามัคคี", "ซื่อสัตย์", "มีวินัย", "น้ำใจ", "น่ารัก", "สดใส"
+            ],
+            EN: [
+                "cat", "dog", "rabbit", "bird", "elephant", "zebra", "monkey", "fish", "turtle", "butterfly",
+                "duck", "bear", "dolphin", "whale", "deer", "penguin", "lion", "panda", "tiger", "koala",
+                "sun", "cloud", "rainbow", "flower", "tree", "mountain", "river", "sky", "star", "rain",
+                "pencil", "eraser", "book", "bag", "bicycle", "ball", "toy", "icecream", "bread", "apple",
+                "smile", "happy", "kind", "smart", "friend", "love", "good", "sweet", "super", "hero"
+            ],
+            MIXED: [
+                { text: "แมว", lang: "TH" }, { text: "cat", lang: "EN" },
+                { text: "สุนัข", lang: "TH" }, { text: "dog", lang: "EN" },
+                { text: "ดวงอาทิตย์", lang: "TH" }, { text: "sun", lang: "EN" },
+                { text: "สายรุ้ง", lang: "TH" }, { text: "rainbow", lang: "EN" },
+                { text: "ดอกไม้", lang: "TH" }, { text: "flower", lang: "EN" },
+                { text: "หนังสือ", lang: "TH" }, { text: "book", lang: "EN" },
+                { text: "เพื่อนรัก", lang: "TH" }, { text: "friend", lang: "EN" },
+                { text: "ยิ้มสดใส", lang: "TH" }, { text: "smile", lang: "EN" },
+                { text: "มีความสุข", lang: "TH" }, { text: "happy", lang: "EN" },
+                { text: "อัศวิน", lang: "TH" }, { text: "knight", lang: "EN" }
+            ],
+            BOSS: [
+                "ฉันเป็นเด็กดีและขยันเรียนรู้",
+                "ความพยายามนำมาซึ่งความสำเร็จเสมอ",
+                "อัศวินตัวน้อยปกป้องรอยยิ้มของทุกคน",
+                "การเรียนรู้คือผจญภัยที่แสนสนุก",
+                "ฝึกฝนวันละนิดจิตแจ่มใสพิมพ์ไวขึ้น",
+                "มีความสุขกับการเรียนรู้สิ่งใหม่ๆ ทุกวัน"
+            ]
+        };
+
+        // GAME STATE
+        let gameState = {
+            mode: 'NORMAL',
+            lang: 'TH',
+            currentWord: "",
+            charIndex: 0,
+            score: 0,
+            combo: 0,
+            maxCombo: 0,
+            totalHits: 0,
+            totalMistakes: 0,
+            startTime: null,
+            heroHp: 100,
+            maxHeroHp: 100,
+            monsterHp: 300,
+            maxMonsterHp: 300,
+            soundEnabled: true,
+            fingerGuideEnabled: true,
+            mixedIdx: 0
+        };
+
+        // SOUND SYNTHESIZER
+        const AudioFX = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            playCorrect() {
+                if (!gameState.soundEnabled) return;
+                this.init();
+                let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+            },
+            playWrong() {
+                if (!gameState.soundEnabled) return;
+                this.init();
+                let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.2);
+            },
+            playAttack() {
+                if (!gameState.soundEnabled) return;
+                this.init();
+                let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.25);
+            }
+        };
+
+        // INIT
+        window.addEventListener('DOMContentLoaded', () => {
+            renderVirtualKeyboard();
+            spawnRandomMonster();
+            nextWord();
+            setupEventListeners();
+        });
+
+        // SPAWN RANDOM MONSTER
+        function spawnRandomMonster() {
+            if (gameState.mode === 'BOSS') {
+                gameState.monsterHp = 600;
+                gameState.maxMonsterHp = 600;
+                document.getElementById('monster-name').textContent = "🔥 RED DRAGON KING (BOSS)";
+                const mSprite = document.getElementById('monster-sprite');
+                mSprite.textContent = '🐲';
+                mSprite.className = 'relative text-7xl transition-all duration-200 transform translate-x-0 scale-125';
+            } else {
+                const randomMon = MONSTER_ROSTER[Math.floor(Math.random() * MONSTER_ROSTER.length)];
+                gameState.monsterHp = randomMon.hp;
+                gameState.maxMonsterHp = randomMon.hp;
+                document.getElementById('monster-name').textContent = randomMon.name;
+                const mSprite = document.getElementById('monster-sprite');
+                mSprite.textContent = randomMon.sprite;
+                mSprite.className = `relative text-6xl transition-all duration-200 transform translate-x-0 ${randomMon.scale}`;
+            }
+
+            document.getElementById('monster-hp-bar').style.width = '100%';
+            document.getElementById('monster-hp-text').textContent = `${gameState.monsterHp} / ${gameState.maxMonsterHp}`;
+        }
+
+        // RENDER VIRTUAL KEYBOARD WITH PROPER STAGGER & LABELS
+        function renderVirtualKeyboard() {
+            const layout = KEYBOARD_LAYOUTS[gameState.lang];
+            for (let r = 0; r < 5; r++) {
+                const rowEl = document.getElementById(`kb-row-${r + 1}`);
+                rowEl.innerHTML = '';
+                layout[r].forEach(k => {
+                    const keyDiv = document.createElement('div');
+                    const bgClass = k.color || (k.isSpecial ? 'bg-slate-800/80 text-slate-400' : 'bg-slate-800 text-slate-100');
+                    
+                    keyDiv.className = `key-base ${k.uClass} ${bgClass} border border-slate-700/80 font-bold text-xs shadow-md transition-all duration-75`;
+                    keyDiv.dataset.code = k.code;
+                    keyDiv.dataset.key = k.key;
+                    keyDiv.dataset.shiftKey = k.shiftKey || k.key;
+
+                    if (k.isSpecial) {
+                        keyDiv.innerHTML = `<span class="text-[11px] font-semibold">${k.key === ' ' ? '' : k.key}</span>`;
+                    } else {
+                        const shiftLabel = (k.shiftKey && k.shiftKey !== k.key) ? k.shiftKey : '';
+                        keyDiv.innerHTML = `
+                            ${shiftLabel ? `<span class="text-[9px] text-slate-400 absolute top-1 right-1.5 leading-none">${shiftLabel}</span>` : ''}
+                            <span class="text-sm font-bold ${shiftLabel ? 'mt-1' : ''}">${k.key}</span>
+                        `;
+                    }
+                    rowEl.appendChild(keyDiv);
+                });
+            }
+        }
+
+        // MODE SWITCHER
+        function changeGameMode(newMode) {
+            gameState.mode = newMode;
+            gameState.mixedIdx = 0;
+            spawnRandomMonster();
+            nextWord();
+        }
+
+        // SET LANGUAGE
+        function setLanguage(lang) {
+            gameState.lang = lang;
+            const btnTh = document.getElementById('btn-lang-th');
+            const btnEn = document.getElementById('btn-lang-en');
+            const indicator = document.getElementById('lang-indicator');
+
+            if (lang === 'TH') {
+                btnTh.className = 'px-3 py-1 rounded-lg bg-amber-500 text-slate-900 font-bold shadow';
+                btnEn.className = 'px-3 py-1 rounded-lg bg-slate-700 text-slate-300 font-bold hover:bg-slate-600 transition';
+                indicator.innerHTML = '<span>🇹🇭</span> THAI (Kedmanee)';
+            } else {
+                btnEn.className = 'px-3 py-1 rounded-lg bg-amber-500 text-slate-900 font-bold shadow';
+                btnTh.className = 'px-3 py-1 rounded-lg bg-slate-700 text-slate-300 font-bold hover:bg-slate-600 transition';
+                indicator.innerHTML = '<span>🇬🇧</span> ENGLISH';
+            }
+            renderVirtualKeyboard();
+            highlightCurrentTargetKey();
+        }
+
+        // NEXT WORD LOGIC
+        function nextWord() {
+            if (gameState.mode === 'MIXED') {
+                const item = WORD_DATABASE.MIXED[gameState.mixedIdx];
+                if (gameState.lang !== item.lang) {
+                    setLanguage(item.lang);
+                }
+                gameState.currentWord = item.text;
+                gameState.mixedIdx = (gameState.mixedIdx + 1) % WORD_DATABASE.MIXED.length;
+            } else if (gameState.mode === 'BOSS') {
+                const list = WORD_DATABASE.BOSS;
+                gameState.currentWord = list[Math.floor(Math.random() * list.length)];
+            } else {
+                const list = WORD_DATABASE[gameState.lang];
+                gameState.currentWord = list[Math.floor(Math.random() * list.length)];
+            }
+
+            gameState.charIndex = 0;
+            renderWordTarget();
+            highlightCurrentTargetKey();
+        }
+
+        // RENDER TARGET WORD
+        function renderWordTarget() {
+            const container = document.getElementById('word-target-container');
+            container.innerHTML = '';
+
+            const chars = Array.from(gameState.currentWord);
+            chars.forEach((char, idx) => {
+                const span = document.createElement('span');
+                span.textContent = char;
+                span.className = 'transition-all duration-150';
+
+                if (/[\u0300-\u036F\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/.test(char)) {
+                    span.classList.add('combining-char');
+                }
+
+                if (idx < gameState.charIndex) {
+                    span.className += ' text-emerald-400 font-extrabold transform scale-110';
+                } else if (idx === gameState.charIndex) {
+                    span.className += ' text-amber-300 font-extrabold underline decoration-amber-400 decoration-4 animate-pulse';
+                } else {
+                    span.className += ' text-slate-500';
+                }
+                container.appendChild(span);
+            });
+        }
+
+        // HIGHLIGHT VIRTUAL KEYBOARD TARGET
+        function highlightCurrentTargetKey() {
+            document.querySelectorAll('.glow-key').forEach(el => el.classList.remove('glow-key'));
+
+            if (!gameState.fingerGuideEnabled) {
+                document.getElementById('finger-hint-text').style.display = 'none';
+                return;
+            } else {
+                document.getElementById('finger-hint-text').style.display = 'block';
+            }
+
+            const currentChar = Array.from(gameState.currentWord)[gameState.charIndex];
+            if (!currentChar) return;
+
+            const layout = KEYBOARD_LAYOUTS[gameState.lang];
+            let foundKey = null;
+
+            for (let row of layout) {
+                for (let k of row) {
+                    if (k.key === currentChar || k.shiftKey === currentChar || (currentChar === ' ' && k.code === 'Space')) {
+                        foundKey = k;
+                        break;
+                    }
+                }
+                if (foundKey) break;
+            }
+
+            if (foundKey) {
+                const keyEl = document.querySelector(`[data-code="${foundKey.code}"]`);
+                if (keyEl) keyEl.classList.add('glow-key');
+
+                document.getElementById('finger-name').textContent = foundKey.finger || 'นิ้วทั่วไป';
+                document.getElementById('key-name').textContent = foundKey.shiftKey === currentChar && foundKey.key !== currentChar ? `Shift + ${foundKey.key}` : foundKey.key.toUpperCase();
+            }
+        }
+
+        // HANDLE KEY INPUT
+        function setupEventListeners() {
+            window.addEventListener('keydown', (e) => {
+                if (e.key === '`') {
+                    e.preventDefault();
+                    setLanguage(gameState.lang === 'TH' ? 'EN' : 'TH');
+                    return;
+                }
+
+                if (['Tab', 'CapsLock', 'Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+
+                if (!gameState.startTime) gameState.startTime = Date.now();
+
+                const keyEl = document.querySelector(`[data-code="${e.code}"]`);
+                const currentChar = Array.from(gameState.currentWord)[gameState.charIndex];
+
+                if (e.key === currentChar) {
+                    // CORRECT HITS
+                    gameState.charIndex++;
+                    gameState.totalHits++;
+                    gameState.combo++;
+                    gameState.score += 10 + (gameState.combo * 2);
+                    if (gameState.combo > gameState.maxCombo) gameState.maxCombo = gameState.combo;
+
+                    AudioFX.playCorrect();
+
+                    if (keyEl) {
+                        keyEl.classList.add('glow-key-correct');
+                        setTimeout(() => keyEl.classList.remove('glow-key-correct'), 150);
+                    }
+
+                    // CHECK WORD COMPLETE
+                    if (gameState.charIndex >= Array.from(gameState.currentWord).length) {
+                        triggerHeroAttack();
+                    } else {
+                        renderWordTarget();
+                        highlightCurrentTargetKey();
+                    }
+                } else {
+                    // MISTAKE
+                    gameState.totalMistakes++;
+                    gameState.combo = 0;
+                    AudioFX.playWrong();
+
+                    triggerMonsterAttack();
+
+                    if (keyEl) {
+                        keyEl.classList.add('glow-key-wrong');
+                        setTimeout(() => keyEl.classList.remove('glow-key-wrong'), 200);
+                    }
+                }
+
+                updateHUD();
+            });
+        }
+
+        // ATTACK ANIMATIONS & HP LOGIC
+        function triggerHeroAttack() {
+            AudioFX.playAttack();
+            const hero = document.getElementById('hero-sprite');
+            const monster = document.getElementById('monster-sprite');
+
+            hero.classList.add('translate-x-12');
+            setTimeout(() => hero.classList.remove('translate-x-12'), 150);
+
+            const damage = 25 + Math.floor(gameState.combo / 2);
+            gameState.monsterHp = Math.max(0, gameState.monsterHp - damage);
+
+            monster.classList.add('scale-90', 'opacity-70');
+            setTimeout(() => monster.classList.remove('scale-90', 'opacity-70'), 150);
+
+            const hpPercent = (gameState.monsterHp / gameState.maxMonsterHp) * 100;
+            document.getElementById('monster-hp-bar').style.width = `${hpPercent}%`;
+            document.getElementById('monster-hp-text').textContent = `${gameState.monsterHp} / ${gameState.maxMonsterHp}`;
+
+            if (gameState.monsterHp <= 0) {
+                // สุ่มมอนสเตอร์ตัวใหม่ขึ้นมาเมื่อตัวเดิม HP หมด
+                setTimeout(() => {
+                    spawnRandomMonster();
+                    nextWord();
+                }, 300);
+            } else {
+                nextWord();
+            }
+        }
+
+        function triggerMonsterAttack() {
+            const hero = document.getElementById('hero-sprite');
+            const monster = document.getElementById('monster-sprite');
+
+            monster.classList.add('-translate-x-8');
+            setTimeout(() => monster.classList.remove('-translate-x-8'), 150);
+
+            gameState.heroHp = Math.max(0, gameState.heroHp - 4);
+
+            hero.classList.add('opacity-50');
+            setTimeout(() => hero.classList.remove('opacity-50'), 150);
+
+            const hpPercent = (gameState.heroHp / gameState.maxHeroHp) * 100;
+            document.getElementById('hero-hp-bar').style.width = `${hpPercent}%`;
+            document.getElementById('hero-hp-text').textContent = `${gameState.heroHp} / ${gameState.maxHeroHp}`;
+
+            if (gameState.heroHp <= 0) {
+                setTimeout(showDefeat, 300);
+            }
+        }
+
+        // UPDATE HUD
+        function updateHUD() {
+            document.getElementById('hud-score').textContent = gameState.score;
+            document.getElementById('hud-combo').textContent = `x${gameState.combo}`;
+
+            const total = gameState.totalHits + gameState.totalMistakes;
+            const acc = total > 0 ? Math.round((gameState.totalHits / total) * 100) : 100;
+            document.getElementById('hud-acc').textContent = `${acc}%`;
+
+            if (gameState.startTime) {
+                const minutes = (Date.now() - gameState.startTime) / 60000;
+                const wpm = minutes > 0 ? Math.round((gameState.totalHits / 5) / minutes) : 0;
+                document.getElementById('hud-wpm').textContent = wpm;
+            }
+        }
+
+        // TOGGLE CONTROLS
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            document.getElementById('btn-toggle-sound').textContent = gameState.soundEnabled ? '🔊' : '🔇';
+        }
+
+        function toggleGuide() {
+            gameState.fingerGuideEnabled = !gameState.fingerGuideEnabled;
+            document.getElementById('btn-toggle-guide').textContent = `Finger Guide: ${gameState.fingerGuideEnabled ? 'ON' : 'OFF'}`;
+            highlightCurrentTargetKey();
+        }
+
+        // MODALS
+        function showDefeat() {
+            document.getElementById('res-icon').textContent = '🌟';
+            document.getElementById('res-title').textContent = 'TRY AGAIN!';
+            document.getElementById('res-desc').textContent = 'ไม่เป็นไรนะ! ลองใหม่อีกครั้งเพื่อฝึกพิมพ์ให้เก่งขึ้น!';
+            fillResultModal();
+        }
+
+        function fillResultModal() {
+            const total = gameState.totalHits + gameState.totalMistakes;
+            const acc = total > 0 ? Math.round((gameState.totalHits / total) * 100) : 100;
+            const minutes = gameState.startTime ? (Date.now() - gameState.startTime) / 60000 : 1;
+            const wpm = minutes > 0 ? Math.round((gameState.totalHits / 5) / minutes) : 0;
+
+            document.getElementById('res-acc').textContent = `${acc}%`;
+            document.getElementById('res-wpm').textContent = `${wpm} WPM`;
+            document.getElementById('res-combo').textContent = `x${gameState.maxCombo}`;
+            document.getElementById('res-score').textContent = gameState.score;
+
+            document.getElementById('result-modal').classList.remove('hidden');
+        }
+
+        function restartGame() {
+            gameState.heroHp = 100;
+            gameState.score = 0;
+            gameState.combo = 0;
+            gameState.maxCombo = 0;
+            gameState.totalHits = 0;
+            gameState.totalMistakes = 0;
+            gameState.startTime = null;
+
+            document.getElementById('hero-hp-bar').style.width = '100%';
+            document.getElementById('hero-hp-text').textContent = '100 / 100';
+
+            document.getElementById('result-modal').classList.add('hidden');
+            spawnRandomMonster();
+            nextWord();
+            updateHUD();
+        }
+    </script>
+</body>
+</html>
